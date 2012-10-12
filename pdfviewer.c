@@ -168,9 +168,14 @@ static void drawpage(fz_context *ctx, fz_document *doc, int pagenum)
 		int size = fz_pixmap_height(ctx, pix) * fz_pixmap_width(ctx, pix);
 		inplace_reorder(fz_pixmap_samples(ctx, pix), size);
 		if (fz_pixmap_width(ctx, pix) != gfx_ctx->width) {
-			size_t offset = (gfx_ctx->width - fz_pixmap_width(ctx, pix)) / 2;
-			for (int i = 0; i < gfx_ctx->height; ++i) {
-				memcpy(&GFX(gfx_ctx, offset, i), &fz_pixmap_samples(ctx, pix)[fz_pixmap_width(ctx, pix) * i * 4], fz_pixmap_width(ctx, pix) * 4);
+			size_t x_offset = (width - fz_pixmap_width(ctx, pix)) / 2;
+			size_t y_offset = (height - fz_pixmap_height(ctx, pix)) / 2;;
+			if (window) {
+				x_offset += decor_left_width;
+				y_offset += decor_top_height;
+			}
+			for (int i = 0; i < fz_pixmap_height(ctx, pix); ++i) {
+				memcpy(&GFX(gfx_ctx, x_offset, y_offset + i), &fz_pixmap_samples(ctx, pix)[fz_pixmap_width(ctx, pix) * i * 4], fz_pixmap_width(ctx, pix) * 4);
 			}
 		} else {
 			memcpy(gfx_ctx->backbuffer, fz_pixmap_samples(ctx, pix), size * 4);
@@ -231,11 +236,14 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 			if (page == 0) page = 1;
 
 			if (window) {
+				char title[512] = {0};
+				sprintf(title, "PDF Viewer - Page %d of %d", page, epage);
 				drawpage(ctx, doc, page);
+				render_decorations(window, window->buffer, title);
 
 				char c;
 				w_keyboard_t * kbd;
-				do {
+				while (1) {
 					kbd = poll_keyboard();
 					if (kbd != NULL) {
 						c = kbd->key;
@@ -252,7 +260,7 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 							exit(0);
 						}
 					}
-				} while (kbd != NULL);
+				}
 
 			} else {
 				printf("\033[H\033[1560z");
@@ -297,7 +305,8 @@ int main(int argc, char **argv) {
 		if (_height) { height = atoi(_height); } else { height = 512; }
 
 		setup_windowing();
-		window = window_create(50,50, width, height);
+		init_decorations();
+		window = window_create(50,50, width + decor_left_width + decor_right_width, height + decor_top_height + decor_bottom_height);
 		gfx_ctx = init_graphics_window(window);
 		draw_fill(gfx_ctx,rgb(0,0,0));
 	} else {
