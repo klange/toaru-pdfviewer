@@ -2,10 +2,14 @@
  * mudraw -- command line tool for drawing pdf/xps/cbz documents
  */
 
-#include "fitz.h"
+#include <fitz.h>
+
+#include "lib/window.h"
 #include "lib/graphics.h"
+#include "lib/decorations.h"
 
 gfx_context_t * gfx_ctx;
+window_t * window;
 
 void compress() {
 	/* Workaround link failure due to zlib oddness */
@@ -225,24 +229,51 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 
 		for (page = spage; page <= epage; ) {
 			if (page == 0) page = 1;
-			printf("\033[H\033[1560z");
-			fflush(stdout);
-			drawpage(ctx, doc, page);
-			printf("[Page %d of %d]", page, epage);
 
-			fflush(stdout);
-			while (1) {
-				char c = fgetc(stdin);
-				if (c == 'a') {
-					page--;
-					break;
-				} else if (c == 's') {
-					page++;
-					if (page > epage) page = epage;
-					break;
-				} else if (c == 'q') {
-					printf("\n");
-					exit(0);
+			if (window) {
+				drawpage(ctx, doc, page);
+
+				char c;
+				w_keyboard_t * kbd;
+				do {
+					kbd = poll_keyboard();
+					if (kbd != NULL) {
+						c = kbd->key;
+						free(kbd);
+						if (c == 'a') {
+							page--;
+							break;
+						} else if (c == 's') {
+							page++;
+							if (page > epage) page = epage;
+							break;
+						} else if (c == 'q') {
+							teardown_windowing();
+							exit(0);
+						}
+					}
+				} while (kbd != NULL);
+
+			} else {
+				printf("\033[H\033[1560z");
+				fflush(stdout);
+				drawpage(ctx, doc, page);
+				printf("[Page %d of %d]", page, epage);
+
+				fflush(stdout);
+				while (1) {
+					char c = fgetc(stdin);
+					if (c == 'a') {
+						page--;
+						break;
+					} else if (c == 's') {
+						page++;
+						if (page > epage) page = epage;
+						break;
+					} else if (c == 'q') {
+						printf("\n");
+						exit(0);
+					}
 				}
 			}
 		}
@@ -258,10 +289,22 @@ int main(int argc, char **argv) {
 
 	fz_var(doc);
 
-	gfx_ctx = init_graphics_fullscreen();
+	char * _windowed = getenv("DISPLAY");
+	if (_windowed) {
+		char * _width  = getenv("WIDTH");
+		char * _height = getenv("HEIGHT");
+		if (_width)  { width  = atoi(_width);  } else { width = 512; }
+		if (_height) { height = atoi(_height); } else { height = 512; }
 
-	width = gfx_ctx->width;
-	height = gfx_ctx->height;
+		setup_windowing();
+		window = window_create(50,50, width, height);
+		gfx_ctx = init_graphics_window(window);
+		draw_fill(gfx_ctx,rgb(0,0,0));
+	} else {
+		gfx_ctx = init_graphics_fullscreen();
+		width = gfx_ctx->width;
+		height = gfx_ctx->height;
+	}
 
 	while ((c = fz_getopt(argc, argv, "wf")) != -1) {
 		switch (c) {
@@ -328,6 +371,10 @@ int main(int argc, char **argv) {
 	}
 
 	fz_free_context(ctx);
+
+	if (window) {
+		teardown_windowing();
+	}
 
 	return (errored != 0);
 }
