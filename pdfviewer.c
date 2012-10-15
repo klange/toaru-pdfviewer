@@ -45,6 +45,12 @@ static fz_colorspace *colorspace;
 static char *filename;
 static int files = 0;
 
+void draw_decors(int page, int epage) {
+	char title[512] = {0};
+	sprintf(title, "PDF Viewer - Page %d of %d", page, epage);
+	render_decorations(window, window->buffer, title);
+}
+
 static void inplace_reorder(char * samples, int size) {
 	for (int i = 0; i < size; ++i) {
 		uint32_t c = ((uint32_t *)samples)[i];
@@ -206,6 +212,11 @@ static void drawpage(fz_context *ctx, fz_document *doc, int pagenum)
 		errored = 1;
 }
 
+int current_page  = 0;
+int current_epage = 0;
+fz_document * current_doc = NULL;
+fz_context  * current_ctx = NULL;
+
 static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 	int page, spage, epage, pagecount;
 	char *spec, *dash;
@@ -232,14 +243,18 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 		spage = fz_clampi(spage, 1, pagecount);
 		epage = fz_clampi(epage, 1, pagecount);
 
+		current_doc = doc;
+		current_ctx = ctx;
+		current_epage = epage;
+
 		for (page = spage; page <= epage; ) {
 			if (page == 0) page = 1;
 
+			current_page = page;
+
 			if (window) {
-				char title[512] = {0};
-				sprintf(title, "PDF Viewer - Page %d of %d", page, epage);
 				drawpage(ctx, doc, page);
-				render_decorations(window, window->buffer, title);
+				draw_decors(page, epage);
 
 				char c;
 				w_keyboard_t * kbd;
@@ -290,6 +305,20 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 	}
 }
 
+void resize_callback(window_t * win) {
+	width  = win->width  - decor_left_width - decor_right_width;
+	height = win->height - decor_top_height - decor_bottom_height;
+
+	reinit_graphics_window(gfx_ctx, window);
+	draw_fill(gfx_ctx, rgb(0,0,0));
+
+	if (current_doc) {
+		/* redraw the page */
+		draw_decors(current_page, current_epage);
+		drawpage(current_ctx, current_doc, current_page);
+	}
+}
+
 int main(int argc, char **argv) {
 	fz_document *doc = NULL;
 	int c;
@@ -305,6 +334,8 @@ int main(int argc, char **argv) {
 		if (_height) { height = atoi(_height); } else { height = 512; }
 
 		setup_windowing();
+		resize_window_callback = resize_callback;
+
 		init_decorations();
 		window = window_create(50,50, width + decor_left_width + decor_right_width, height + decor_top_height + decor_bottom_height);
 		gfx_ctx = init_graphics_window(window);
