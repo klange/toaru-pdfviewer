@@ -48,7 +48,7 @@ static int files = 0;
 void draw_decors(int page, int epage) {
 	char title[512] = {0};
 	sprintf(title, "PDF Viewer - Page %d of %d", page, epage);
-	render_decorations(window, window->buffer, title);
+	render_decorations(window, gfx_ctx, title);
 }
 
 static void inplace_reorder(char * samples, int size) {
