@@ -319,6 +319,11 @@ void resize_callback(window_t * win) {
 	}
 }
 
+void focus_callback(window_t * window) {
+	draw_decors(current_page, current_epage);
+	drawpage(current_ctx, current_doc, current_page);
+}
+
 int main(int argc, char **argv) {
 	fz_document *doc = NULL;
 	int c;
@@ -335,11 +340,13 @@ int main(int argc, char **argv) {
 
 		setup_windowing();
 		resize_window_callback = resize_callback;
+		focus_changed_callback = focus_callback;
 
 		init_decorations();
 		window = window_create(50,50, width + decor_left_width + decor_right_width, height + decor_top_height + decor_bottom_height);
 		gfx_ctx = init_graphics_window(window);
 		draw_fill(gfx_ctx,rgb(0,0,0));
+		render_decorations(window, gfx_ctx, "PDFViewer - Loading...");
 	} else {
 		gfx_ctx = init_graphics_fullscreen();
 		width = gfx_ctx->width;
