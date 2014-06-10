@@ -1,5 +1,5 @@
 CC = i686-pc-toaru-gcc
-CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32 -Wl,--allow-multiple-definition
+CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32
 CPPFLAGS = -O3 -m32 -Wa,--32
 EXTRAFLAGS = -s
 EXECUTABLES = $(patsubst %.c,../hdd/bin/%,$(wildcard *.c))
@@ -20,8 +20,6 @@ LIBM = ${TOOLCHAIN}/lib/libm.a
 LIBZ = ${TOOLCHAIN}/lib/libz.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game drawlines glogin julia solver wallpaper panel glock clock-win draw test-gfx threadtest bim nctest
-FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 LOCAL_LIBS = $(patsubst %.c,%.o,$(wildcard ../userspace/lib/*.c))
 LOCAL_INC  = -I ../userspace/

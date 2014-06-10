@@ -2,9 +2,9 @@ This is a port of MuPDF / mudraw to toaruos.
 
 You'll need to get a copy of MuPDF and get it to build; this requires native copies of some things.
 
-If you can get MuPDF's libraries installed (don't worry about the apps), clone this into your `osdev` directory and build it. It will install binaries into the hard disk directory, so rebuild your disk image and run `pdfviewer [filename]`.
+If you can get MuPDF's libraries installed (don't worry about the apps), clone this into your `toaruos` directory and build it. It will install binaries into the hard disk directory, so rebuild your disk image and run `pdfviewer [filename]`.
 
-Eventually, all of the mudraw features will be stripped away to turn this into a simple PDF viewer with both full screen and windowed capabilities, but for now it works okay and I can show my Beamer presentations with it.
+MuPDF is released under the terms of the GPL:
 
     MuPDF is Copyright 2006-2012 Artifex Software, Inc.
 

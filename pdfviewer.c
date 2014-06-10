@@ -4,12 +4,13 @@
 
 #include <fitz.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/decorations.h"
 
 gfx_context_t * gfx_ctx;
-window_t * window;
+yutani_t * yctx;
+yutani_window_t * window;
 
 void compress() {
 	/* Workaround link failure due to zlib oddness */
@@ -32,7 +33,6 @@ static float resolution = 72;
 static int res_specified = 0;
 static float rotation = 0;
 
-static int windowed = 0;
 static int width = 0;
 static int height = 0;
 static int fit = 0;
@@ -217,6 +217,25 @@ int current_epage = 0;
 fz_document * current_doc = NULL;
 fz_context  * current_ctx = NULL;
 
+static void resize_finish(int w, int h) {
+	width  = w - decor_left_width - decor_right_width;
+	height = h - decor_top_height - decor_bottom_height;
+
+	yutani_window_resize_accept(yctx, window, w, h);
+
+	reinit_graphics_yutani(gfx_ctx, window);
+	draw_fill(gfx_ctx, rgb(0,0,0));
+
+	if (current_doc) {
+		/* redraw the page */
+		draw_decors(current_page, current_epage);
+		drawpage(current_ctx, current_doc, current_page);
+	}
+
+	yutani_window_resize_done(yctx, window);
+	yutani_flip(yctx, window);
+}
+
 static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 	int page, spage, epage, pagecount;
 	char *spec, *dash;
@@ -252,76 +271,71 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 
 			current_page = page;
 
-			if (window) {
-				drawpage(ctx, doc, page);
-				draw_decors(page, epage);
+			drawpage(ctx, doc, page);
+			draw_decors(page, epage);
 
-				char c;
-				w_keyboard_t * kbd;
-				while (1) {
-					kbd = poll_keyboard();
-					if (kbd != NULL) {
-						c = kbd->key;
-						free(kbd);
-						if (c == 'a') {
-							page--;
+			yutani_flip(yctx, window);
+
+			yutani_msg_t * m = NULL;
+			while (1) {
+				m = yutani_poll(yctx);
+				if (m) {
+					switch (m->type) {
+						case YUTANI_MSG_KEY_EVENT:
+							{
+								struct yutani_msg_key_event * ke = (void*)m->data;
+								if (ke->event.action == KEY_ACTION_DOWN) {
+									switch (ke->event.keycode) {
+										case 'q':
+											yutani_close(yctx, window);
+											exit(0);
+											break;
+										case 'a':
+											page--;
+											goto _continue;
+										case 's':
+											page++;
+											if (page > epage) page = epage;
+											goto _continue;
+										default:
+											break;
+									}
+								}
+							}
 							break;
-						} else if (c == 's') {
-							page++;
-							if (page > epage) page = epage;
-							break;
-						} else if (c == 'q') {
-							teardown_windowing();
+						case YUTANI_MSG_SESSION_END:
+							yutani_close(yctx, window);
 							exit(0);
-						}
+							break;
+						case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+							{
+								struct yutani_msg_window_focus_change * wf = (void*)m->data;
+								yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+								if (win) {
+									win->focused = wf->focused;
+									goto _continue;
+								}
+							}
+							break;
+						case YUTANI_MSG_RESIZE_OFFER:
+							{
+								struct yutani_msg_window_resize * wr = (void*)m->data;
+								resize_finish(wr->width, wr->height);
+								goto _continue;
+							}
+							break;
+						default:
+							break;
 					}
 				}
-
-			} else {
-				printf("\033[H\033[1560z");
-				fflush(stdout);
-				drawpage(ctx, doc, page);
-				printf("[Page %d of %d]", page, epage);
-
-				fflush(stdout);
-				while (1) {
-					char c = fgetc(stdin);
-					if (c == 'a') {
-						page--;
-						break;
-					} else if (c == 's') {
-						page++;
-						if (page > epage) page = epage;
-						break;
-					} else if (c == 'q') {
-						printf("\n");
-						exit(0);
-					}
-				}
+				free(m);
 			}
+_continue:
+			free(m);
 		}
 
 		spec = fz_strsep(&range, ",");
 	}
-}
-
-void resize_callback(window_t * win) {
-	width  = win->width  - decor_left_width - decor_right_width;
-	height = win->height - decor_top_height - decor_bottom_height;
-
-	reinit_graphics_window(gfx_ctx, window);
-	draw_fill(gfx_ctx, rgb(0,0,0));
-
-	if (current_doc) {
-		/* redraw the page */
-		draw_decors(current_page, current_epage);
-		drawpage(current_ctx, current_doc, current_page);
-	}
-}
-
-void focus_callback(window_t * window) {
-	draw_decors(current_page, current_epage);
-	drawpage(current_ctx, current_doc, current_page);
 }
 
 int main(int argc, char **argv) {
@@ -331,33 +345,24 @@ int main(int argc, char **argv) {
 
 	fz_var(doc);
 
-	char * _windowed = getenv("DISPLAY");
-	if (_windowed) {
-		char * _width  = getenv("WIDTH");
-		char * _height = getenv("HEIGHT");
-		if (_width)  { width  = atoi(_width);  } else { width = 512; }
-		if (_height) { height = atoi(_height); } else { height = 512; }
+	yctx = yutani_init();
 
-		setup_windowing();
-		resize_window_callback = resize_callback;
-		focus_changed_callback = focus_callback;
+	char * _width  = getenv("WIDTH");
+	char * _height = getenv("HEIGHT");
+	if (_width)  { width  = atoi(_width);  } else { width = 512; }
+	if (_height) { height = atoi(_height); } else { height = 512; }
 
-		init_decorations();
-		window = window_create(50,50, width + decor_left_width + decor_right_width, height + decor_top_height + decor_bottom_height);
-		gfx_ctx = init_graphics_window(window);
-		draw_fill(gfx_ctx,rgb(0,0,0));
-		render_decorations(window, gfx_ctx, "PDFViewer - Loading...");
-	} else {
-		gfx_ctx = init_graphics_fullscreen();
-		width = gfx_ctx->width;
-		height = gfx_ctx->height;
-	}
+	init_decorations();
+
+	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
+	yutani_window_move(yctx, window, 50, 50);
+
+	gfx_ctx = init_graphics_yutani(window);
+	draw_fill(gfx_ctx,rgb(0,0,0));
+	render_decorations(window, gfx_ctx, "PDFViewer - Loading...");
 
 	while ((c = fz_getopt(argc, argv, "wf")) != -1) {
 		switch (c) {
-			case 'w':
-				windowed = 1;
-				break;
 			case 'f':
 				fit = 1;
 				break;
@@ -418,10 +423,6 @@ int main(int argc, char **argv) {
 	}
 
 	fz_free_context(ctx);
-
-	if (window) {
-		teardown_windowing();
-	}
 
 	return (errored != 0);
 }
