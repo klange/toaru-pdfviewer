@@ -324,6 +324,16 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 								goto _continue;
 							}
 							break;
+						case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+							{
+								struct yutani_msg_window_mouse_event * me = (void*)m->data;
+								if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+									if (me->new_y < decor_top_height) {
+										yutani_window_drag_start(yctx, window);
+									}
+								}
+							}
+							break;
 						default:
 							break;
 					}
@@ -356,6 +366,8 @@ int main(int argc, char **argv) {
 
 	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
 	yutani_window_move(yctx, window, 50, 50);
+
+	yutani_window_advertise_icon(yctx, window, "PDF Viewer", "pdfviewer");
 
 	gfx_ctx = init_graphics_yutani(window);
 	draw_fill(gfx_ctx,rgb(0,0,0));
