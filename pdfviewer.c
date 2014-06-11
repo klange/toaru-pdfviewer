@@ -28,7 +28,6 @@ int getrusage(int who, void *usage) {
 
 enum { TEXT_PLAIN = 1, TEXT_HTML = 2, TEXT_XML = 3 };
 
-static char *output = NULL;
 static float resolution = 72;
 static int res_specified = 0;
 static float rotation = 0;
@@ -359,8 +358,8 @@ int main(int argc, char **argv) {
 
 	char * _width  = getenv("WIDTH");
 	char * _height = getenv("HEIGHT");
-	if (_width)  { width  = atoi(_width);  } else { width = 512; }
-	if (_height) { height = atoi(_height); } else { height = 512; }
+	width  = _width  ? atoi(_width)  : 512;
+	height = _height ? atoi(_height) : 512;
 
 	init_decorations();
 
@@ -380,8 +379,6 @@ int main(int argc, char **argv) {
 				break;
 		}
 	}
-
-	output = "yes";
 
 	ctx = fz_new_context(NULL, NULL, FZ_STORE_DEFAULT);
 	if (!ctx) {
