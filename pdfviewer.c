@@ -285,13 +285,16 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 								struct yutani_msg_key_event * ke = (void*)m->data;
 								if (ke->event.action == KEY_ACTION_DOWN) {
 									switch (ke->event.keycode) {
+										case KEY_ESCAPE:
 										case 'q':
 											yutani_close(yctx, window);
 											exit(0);
 											break;
+										case KEY_ARROW_LEFT:
 										case 'a':
 											page--;
 											goto _continue;
+										case KEY_ARROW_RIGHT:
 										case 's':
 											page++;
 											if (page > epage) page = epage;
