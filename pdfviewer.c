@@ -38,6 +38,7 @@ static int fit = 0;
 static int errored = 0;
 static int ignore_errors = 0;
 static int alphabits = 8;
+static int toggle_decors = 1;
 
 static fz_text_sheet *sheet = NULL;
 static fz_colorspace *colorspace;
@@ -45,9 +46,11 @@ static char *filename;
 static int files = 0;
 
 void draw_decors(int page, int epage) {
-	char title[512] = {0};
-	sprintf(title, "PDF Viewer - Page %d of %d", page, epage);
-	render_decorations(window, gfx_ctx, title);
+	if (toggle_decors) {
+		char title[512] = {0};
+		sprintf(title, "PDF Viewer - Page %d of %d", page, epage);
+		render_decorations(window, gfx_ctx, title);
+	}
 }
 
 static void inplace_reorder(char * samples, int size) {
@@ -172,18 +175,14 @@ static void drawpage(fz_context *ctx, fz_document *doc, int pagenum)
 
 		int size = fz_pixmap_height(ctx, pix) * fz_pixmap_width(ctx, pix);
 		inplace_reorder(fz_pixmap_samples(ctx, pix), size);
-		if (fz_pixmap_width(ctx, pix) != gfx_ctx->width) {
-			size_t x_offset = (width - fz_pixmap_width(ctx, pix)) / 2;
-			size_t y_offset = (height - fz_pixmap_height(ctx, pix)) / 2;;
-			if (window) {
-				x_offset += decor_left_width;
-				y_offset += decor_top_height;
-			}
-			for (int i = 0; i < fz_pixmap_height(ctx, pix); ++i) {
-				memcpy(&GFX(gfx_ctx, x_offset, y_offset + i), &fz_pixmap_samples(ctx, pix)[fz_pixmap_width(ctx, pix) * i * 4], fz_pixmap_width(ctx, pix) * 4);
-			}
-		} else {
-			memcpy(gfx_ctx->backbuffer, fz_pixmap_samples(ctx, pix), size * 4);
+		size_t x_offset = (width - fz_pixmap_width(ctx, pix)) / 2;
+		size_t y_offset = (height - fz_pixmap_height(ctx, pix)) / 2;;
+		if (toggle_decors) {
+			x_offset += decor_left_width;
+			y_offset += decor_top_height;
+		}
+		for (int i = 0; i < fz_pixmap_height(ctx, pix); ++i) {
+			memcpy(&GFX(gfx_ctx, x_offset, y_offset + i), &fz_pixmap_samples(ctx, pix)[fz_pixmap_width(ctx, pix) * i * 4], fz_pixmap_width(ctx, pix) * 4);
 		}
 
 	}
@@ -216,9 +215,24 @@ int current_epage = 0;
 fz_document * current_doc = NULL;
 fz_context  * current_ctx = NULL;
 
+void recalc_size(int w, int h) {
+	if (!toggle_decors) {
+		width = w;
+		height = h;
+	} else {
+		width  = w - decor_left_width - decor_right_width;
+		height = h - decor_top_height - decor_bottom_height;
+	}
+}
+
+void toggle_decorations(void) {
+	toggle_decors = !toggle_decors;
+	draw_fill(gfx_ctx, rgb(0,0,0));
+	recalc_size(window->width, window->height);
+}
+
 static void resize_finish(int w, int h) {
-	width  = w - decor_left_width - decor_right_width;
-	height = h - decor_top_height - decor_bottom_height;
+	recalc_size(w, h);
 
 	yutani_window_resize_accept(yctx, window, w, h);
 
@@ -299,6 +313,9 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 											page++;
 											if (page > epage) page = epage;
 											goto _continue;
+										case KEY_F12:
+											toggle_decorations();
+											goto _continue;
 										default:
 											break;
 									}
@@ -327,13 +344,9 @@ static void drawrange(fz_context *ctx, fz_document *doc, char *range) {
 							}
 							break;
 						case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-							{
-								struct yutani_msg_window_mouse_event * me = (void*)m->data;
-								if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-									if (me->new_y < decor_top_height) {
-										yutani_window_drag_start(yctx, window);
-									}
-								}
+							if (decor_handle_event(yctx, m) == DECOR_CLOSE) {
+								yutani_close(yctx, window);
+								exit(0);
 							}
 							break;
 						default:
