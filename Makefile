@@ -14,14 +14,16 @@ BEGRM = ../util/mk-beg-rm
 ENDRM = ../util/mk-end-rm
 
 FREETYPE_INC = -I ${TOOLCHAIN}/include/freetype2/
-FREETYPE_LIB = ${TOOLCHAIN}/lib/libfreetype.a
-LIBPNG = ${TOOLCHAIN}/lib/libpng.a
-LIBM = ${TOOLCHAIN}/lib/libm.a
-LIBZ = ${TOOLCHAIN}/lib/libz.a
+FREETYPE_LIB = -lfreetype
+LIBPNG = -lpng15
+LIBM = -lm
+LIBZ = -lz
+
+ljpeg = /home/klange/Projects/third-party/mupdf-1.1-source/build/debug/libjpeg.a
 
 TARGETDIR = ../hdd/bin/
 
-LOCAL_LIBS = $(patsubst %.c,%.o,$(wildcard ../userspace/lib/*.c))
+LOCAL_LIBS = -ltoaru-decorations -ltoaru-yutani -ltoaru-shmemfonts -ltoaru-graphics -ltoaru-dlfcn -ltoaru-hashmap -ltoaru-pex -ltoaru-list -ltoaru-kbd
 LOCAL_INC  = -I ../userspace/
 
 .PHONY: all clean
@@ -31,8 +33,8 @@ all: ${EXECUTABLES}
 clean:
 	@-rm -f ${EXECUTABLES}
 
-$(TARGETDIR)pdfviewer: $(TARGETDIR)% : %.c ${LOCAL_LIBS}
+$(TARGETDIR)pdfviewer: $(TARGETDIR)% : %.c
 	@${BEG} "CC" "$@ $< [w/libs]"
-	@${CC} -flto ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} ${LOCAL_INC} -o $@ $< ${LOCAL_LIBS} ${LIBM} ${FREETYPE_LIB} ${LIBPNG} -lfitz -ljbig2dec -lopenjpeg -ljpeg ${LIBZ} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} ${LOCAL_INC} -o $@ $< ${LOCAL_LIBS} ${FREETYPE_LIB} ${LIBPNG} -lfitz -ljbig2dec -lopenjpeg ${ljpeg} ${LIBZ} ${LIBM} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
