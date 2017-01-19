@@ -168,3 +168,7 @@ void * load_document(fz_context * ctx, char * path) {
 void set_fit(int _fit) {
 	fit = _fit;
 }
+
+int page_count(fz_document * doc) {
+	return fz_count_pages(doc);
+}
