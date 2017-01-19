@@ -12,15 +12,6 @@ gfx_context_t * gfx_ctx;
 yutani_t * yctx;
 yutani_window_t * window;
 
-void compress() {
-	/* Workaround link failure due to zlib oddness */
-}
-
-int compressBound(int sourceLen) {
-	/* Similarly */
-	return sourceLen;
-}
-
 int getrusage(int who, void *usage) {
 	/* We don't support getrusage, required by a dependency */
 	return -1;
