@@ -24,6 +24,8 @@ from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntry
 from icon_cache import get_icon
 from about_applet import AboutAppletWindow
 
+from dialog import OpenFileDialog
+
 import yutani_mainloop
 
 version = "0.1.0"
@@ -53,6 +55,9 @@ class PDFViewerWindow(yutani.Window):
 
         self.fitz_ctx = self.fitz_lib.init_fitz()
 
+        def open_file(action):
+            OpenFileDialog(self.decorator,"Open PDF...",glob="*.pdf",callback=self.load_file,window=self)
+
         def exit_app(action):
             menus = [x for x in self.menus.values()]
             for x in menus:
@@ -65,6 +70,8 @@ class PDFViewerWindow(yutani.Window):
             subprocess.Popen(["help-browser.py","downloaded/mupdf.trt"])
         menus = [
             ("File", [
+                MenuEntryAction("Open","open",open_file,None),
+                MenuEntryDivider(),
                 MenuEntryAction("Exit","exit",exit_app,None),
             ]),
             ("Help", [
