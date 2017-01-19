@@ -53,8 +53,6 @@ class PDFViewerWindow(yutani.Window):
         self.fitz_lib.page_count.argtypes = [ctypes.c_void_p]
         self.fitz_lib.page_count.restype = ctypes.c_int
 
-        self.fitz_ctx = self.fitz_lib.init_fitz()
-
         def open_file(action):
             OpenFileDialog(self.decorator,"Open PDF...",glob="*.pdf",callback=self.load_file,window=self)
 
@@ -100,6 +98,7 @@ class PDFViewerWindow(yutani.Window):
             self.page = 1
             self.page_count = 1
         else:
+            self.fitz_ctx = self.fitz_lib.init_fitz()
             self.path = path
             self.document = self.fitz_lib.load_document(self.fitz_ctx, path.encode('utf-8'))
             self.page = 1
