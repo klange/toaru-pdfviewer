@@ -36,6 +36,9 @@ clean:
 libmemalign.so: memalign.c
 	@${CC} -fPIC -shared -Wl,-soname,libmemalign.so -o libmemalign.so memalign.c -lgcc -lc
 
+libtoaru-fitz.so: toaru-fitz.c
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} ${LOCAL_INC}  -fPIC -shared -Wl,-soname,libtoaru-fitz.so -o libtoaru-fitz.so toaru-fitz.c -lfitz -lmemalign -ltoaru-graphics -lgcc -lc
+
 $(TARGETDIR)pdfviewer: $(TARGETDIR)% : %.c | libmemalign.so
 	@${BEG} "CC" "$@ $< [w/libs]"
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} ${LOCAL_INC} -o $@ $< ${LOCAL_LIBS} -lfitz  ${FREETYPE_LIB} ${LIBPNG} -ljbig2dec -lopenjpeg ${ljpeg} ${LIBZ} ${LIBM} -lmemalign ${ERRORS}
